@@ -6,9 +6,26 @@ const multer = require('multer');
 // Apply user auth to all routes
 router.use(authUser);
 
-// File upload configuration
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'socialnews/tasks',
+    allowed_formats: ['jpeg', 'jpg', 'png', 'gif', 'pdf', 'doc', 'docx'],
+    resource_type: 'auto',
+  },
+});
+
 const upload = multer({
-  dest: 'uploads/',
+  storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
 });
 
