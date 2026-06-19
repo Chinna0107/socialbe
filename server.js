@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
@@ -25,11 +24,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// File upload configuration
-const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-});
+// File upload handled in respective routes (e.g., media.js using Cloudinary)
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
