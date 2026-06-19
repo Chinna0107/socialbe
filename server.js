@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 const allowedOrigins = [
   process.env.FRONTEND_URL_DEV || 'http://localhost:5173',
-  process.env.FRONTEND_URL_PROD || 'https://yourdomain.com'
+  process.env.FRONTEND_URL_PROD || 'https://socialnews.vercel.app',
 ];
 
 app.use(cors({
@@ -45,6 +45,11 @@ app.use('/api/banners', require('./routes/banners'));
 app.use('/api/adsense', require('./routes/adsense'));
 
 
+// Root Route
+app.get('/', (req, res) => {
+  res.json({ message: 'Social News API is running!', timestamp: new Date().toISOString() });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -61,6 +66,10 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
