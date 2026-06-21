@@ -43,6 +43,8 @@ app.use('/api/media', require('./routes/media'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/banners', require('./routes/banners'));
 app.use('/api/adsense', require('./routes/adsense'));
+app.use('/api/admin/news', require('./routes/news_admin'));
+app.use('/api/news', require('./routes/news_public'));
 
 
 // Root Route

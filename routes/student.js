@@ -8,6 +8,12 @@ router.use(authUser);
 
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
+const Razorpay = require('razorpay');
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummykey',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummysecret'
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -33,7 +39,7 @@ const upload = multer({
 router.get('/dashboard', async (req, res) => {
   try {
     const [user, taskStats, certRows, quizAvgRow, campaignCount, taskPipeline, activityRows] = await Promise.all([
-      pool.query('SELECT id,name,email,role,avatar,phone,impact_points,level,student_id,is_active,created_at FROM users WHERE id=$1', [req.user.id]),
+      pool.query('SELECT id,name,email,role,avatar,phone,impact_points,level,student_id,is_active,created_at,age,gender,college,address FROM users WHERE id=$1', [req.user.id]),
       pool.query(`SELECT status, COUNT(*) as count, COALESCE(SUM(points_earned),0) as points FROM task_assignments WHERE user_id=$1 GROUP BY status`, [req.user.id]),
       pool.query('SELECT id, title, issued_at FROM certificates WHERE user_id=$1 ORDER BY issued_at DESC LIMIT 5', [req.user.id]),
       pool.query('SELECT COALESCE(AVG(score),0) as avg FROM quiz_attempts WHERE user_id=$1 AND status=\'COMPLETED\'', [req.user.id]),
@@ -122,22 +128,74 @@ router.get('/campaigns', async (req, res) => {
   }
 });
 
+router.post('/campaigns/:id/order', async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+    const camp = await pool.query('SELECT entry_fee FROM campaigns WHERE id=$1', [campaignId]);
+    if (!camp.rows.length) return res.status(404).json({ error: 'Campaign not found' });
+    
+    const amount = parseFloat(camp.rows[0].entry_fee || 0);
+    if (amount <= 0) return res.status(400).json({ error: 'Campaign has no entry fee' });
+
+    const options = {
+      amount: amount * 100, // in paise
+      currency: 'INR',
+      receipt: `camp_reg_${req.user.id}_${Date.now()}`
+    };
+
+    if (razorpay.key_id.includes('dummy') || razorpay.key_id.includes('YourKeyHere')) {
+      return res.json({ 
+        order: { id: `order_mock_${Date.now()}`, amount: options.amount }, 
+        key: razorpay.key_id,
+        mock: true 
+      });
+    }
+
+    const order = await razorpay.orders.create(options);
+    res.json({ order, key: razorpay.key_id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/campaigns/:id/register', async (req, res) => {
   try {
     const campaignId = req.params.id;
+    const { payment_id, order_id, signature } = req.body;
+
+    const camp = await pool.query('SELECT title, entry_fee FROM campaigns WHERE id=$1', [campaignId]);
+    if (!camp.rows.length) return res.status(404).json({ error: 'Campaign not found' });
+    
+    const amount = parseFloat(camp.rows[0].entry_fee || 0);
+    
+    // Simple check if paid campaign but no payment details sent
+    if (amount > 0 && !payment_id) {
+       return res.status(400).json({ error: 'Payment required for this campaign' });
+    }
+
     const result = await pool.query(
       'INSERT INTO campaign_registrations (user_id, campaign_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
       [req.user.id, campaignId]
     );
     
-    // Also fetch the campaign title to create a meaningful notification
     if (result.rows.length > 0) {
-      const camp = await pool.query('SELECT title FROM campaigns WHERE id=$1', [campaignId]);
-      const title = camp.rows[0]?.title || 'a campaign';
+      const title = camp.rows[0].title;
       await pool.query(
         'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
         [req.user.id, 'Registration Confirmed', `You have successfully registered for the campaign: ${title}`, 'success']
       );
+
+      // If there was a payment, record it in donations table as campaign fee
+      if (amount > 0 && payment_id) {
+        const user = await pool.query('SELECT name, email FROM users WHERE id=$1', [req.user.id]);
+        const donId = `FEE-${Date.now().toString(36).toUpperCase()}`;
+        await pool.query(
+          'INSERT INTO donations (id, user_id, campaign_id, amount, donor_name, donor_email, message, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [donId, req.user.id, campaignId, amount, user.rows[0].name, user.rows[0].email, `Entry Fee: ${payment_id}`, 'completed']
+        );
+        // Update collected amount
+        await pool.query('UPDATE campaigns SET collected = collected + $1 WHERE id=$2', [amount, campaignId]);
+      }
     }
 
     res.json({ message: 'Registered successfully', registration: result.rows[0] });

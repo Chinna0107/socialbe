@@ -74,7 +74,7 @@ router.get('/users', async (req, res) => {
 
     const [dataResult, countResult] = await Promise.all([
       pool.query(
-        `SELECT id,name,email,role,phone,impact_points,level,student_id,is_active,created_at
+        `SELECT id,name,email,role,phone,impact_points,level,student_id,is_active,created_at,age,gender,college,address
          FROM users ${where}
          ORDER BY created_at DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -97,7 +97,7 @@ router.get('/users', async (req, res) => {
 router.get('/users/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id,name,email,role,phone,impact_points,level,student_id,is_active,created_at FROM users WHERE id=$1',
+      'SELECT id,name,email,role,phone,impact_points,level,student_id,is_active,created_at,age,gender,college,address FROM users WHERE id=$1',
       [req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -167,13 +167,29 @@ router.get('/campaigns', async (req, res) => {
   }
 });
 
+router.get('/campaigns/:id/participants', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT cr.registered_at as joined_at, u.id, u.name, u.email, u.student_id, u.phone 
+       FROM campaign_registrations cr
+       JOIN users u ON cr.user_id = u.id
+       WHERE cr.campaign_id = $1
+       ORDER BY cr.registered_at DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/campaigns', async (req, res) => {
   try {
-    const { title, description, image, goal, tag } = req.body;
+    const { title, description, image, goal, entry_fee, tag } = req.body;
     const id = `CAMP-${Date.now().toString(36).toUpperCase()}`;
     const result = await pool.query(
-      'INSERT INTO campaigns (id,title,description,image,goal,tag) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [id, title, description, image, goal, tag]
+      'INSERT INTO campaigns (id,title,description,image,goal,entry_fee,tag) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [id, title, description, image, goal, entry_fee || 0, tag]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -183,10 +199,10 @@ router.post('/campaigns', async (req, res) => {
 
 router.put('/campaigns/:id', async (req, res) => {
   try {
-    const { title, description, image, goal, tag, status } = req.body;
+    const { title, description, image, goal, entry_fee, tag, status } = req.body;
     const result = await pool.query(
-      'UPDATE campaigns SET title=$1,description=$2,image=$3,goal=$4,tag=$5,status=$6 WHERE id=$7 RETURNING *',
-      [title, description, image, goal, tag, status, req.params.id]
+      'UPDATE campaigns SET title=$1,description=$2,image=$3,goal=$4,entry_fee=$5,tag=$6,status=$7 WHERE id=$8 RETURNING *',
+      [title, description, image, goal, entry_fee || 0, tag, status, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {

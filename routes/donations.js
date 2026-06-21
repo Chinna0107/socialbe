@@ -1,6 +1,12 @@
 const router = require('express').Router();
 const pool = require('../db');
 const { authAdmin, authAny } = require('../middleware/auth');
+const Razorpay = require('razorpay');
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummykey',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummysecret'
+});
 
 // Public: get active donation campaigns
 router.get('/campaigns', async (req, res) => {
@@ -12,15 +18,44 @@ router.get('/campaigns', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Public: create Razorpay order for donation
+router.post('/order', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'amount required' });
+    
+    const options = {
+      amount: amount * 100, // in paise
+      currency: 'INR',
+      receipt: `don_${Date.now()}`
+    };
+
+    if (razorpay.key_id.includes('dummy') || razorpay.key_id.includes('YourKeyHere')) {
+      return res.json({ 
+        order: { id: `order_mock_${Date.now()}`, amount: options.amount }, 
+        key: razorpay.key_id,
+        mock: true 
+      });
+    }
+
+    const order = await razorpay.orders.create(options);
+    res.json({ order, key: razorpay.key_id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Public: submit donation
 router.post('/donate', async (req, res) => {
   try {
-    const { campaign_id, amount, donor_name, donor_email, message, user_id } = req.body;
+    const { campaign_id, amount, donor_name, donor_email, message, user_id, payment_id } = req.body;
     if (!campaign_id || !amount || amount <= 0) return res.status(400).json({ error: 'campaign_id and positive amount required' });
     const donationId = `DON-${Date.now().toString(36).toUpperCase()}`;
+    const donationMessage = payment_id ? `[Payment: ${payment_id}] ${message || ''}` : message;
+    
     const result = await pool.query(
       'INSERT INTO donations (id, user_id, campaign_id, amount, donor_name, donor_email, message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [donationId, user_id || null, campaign_id, amount, donor_name, donor_email, message]
+      [donationId, user_id || null, campaign_id, amount, donor_name, donor_email, donationMessage]
     );
     await pool.query('UPDATE campaigns SET collected = collected + $1 WHERE id=$2', [amount, campaign_id]);
     await pool.query(

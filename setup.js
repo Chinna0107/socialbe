@@ -38,6 +38,7 @@ async function setup() {
       image TEXT,
       goal NUMERIC(12,2) DEFAULT 0,
       collected NUMERIC(12,2) DEFAULT 0,
+      entry_fee NUMERIC(10,2) DEFAULT 0,
       tag VARCHAR(50),
       status VARCHAR(20) DEFAULT 'active',
       created_at TIMESTAMP DEFAULT NOW()
@@ -302,6 +303,9 @@ async function setup() {
 
   // Add missing columns (idempotent)
   await pool.query(`
+    ALTER TABLE campaigns
+      ADD COLUMN IF NOT EXISTS entry_fee NUMERIC(10,2) DEFAULT 0;
+
     ALTER TABLE tasks
       ADD COLUMN IF NOT EXISTS instructions TEXT,
       ADD COLUMN IF NOT EXISTS due_date DATE,
@@ -321,6 +325,12 @@ async function setup() {
       ADD COLUMN IF NOT EXISTS score INT,
       ADD COLUMN IF NOT EXISTS quiz_id VARCHAR(30),
       ADD COLUMN IF NOT EXISTS task_id VARCHAR(30);
+
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS age INT,
+      ADD COLUMN IF NOT EXISTS gender VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS college VARCHAR(200),
+      ADD COLUMN IF NOT EXISTS address TEXT;
 
     CREATE UNIQUE INDEX IF NOT EXISTS uniq_cert_user_quiz ON certificates (user_id, quiz_id) WHERE quiz_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS uniq_cert_user_task ON certificates (user_id, task_id) WHERE task_id IS NOT NULL;

@@ -76,7 +76,7 @@ router.post('/verify-otp', async (req, res) => {
 
 // POST /api/auth/register — user/student
 router.post('/register', async (req, res) => {
-  const { name, email, password, phone, role } = req.body;
+  const { name, email, password, phone, role, age, gender, college, address } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
   
   const record = otpCache.get(email);
@@ -88,8 +88,8 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const studentId = `SN-${Date.now().toString(36).toUpperCase()}`;
     const r = await pool.query(
-      'INSERT INTO users (name,email,password,phone,role,student_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,name,email,role,student_id,impact_points',
-      [name, email, hash, phone || null, role || 'student', studentId]
+      'INSERT INTO users (name,email,password,phone,role,student_id,age,gender,college,address) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id,name,email,role,student_id,impact_points',
+      [name, email, hash, phone || null, role || 'student', studentId, age || null, gender || null, college || null, address || null]
     );
     const token = signToken({ id: r.rows[0].id, email, role: r.rows[0].role });
     otpCache.delete(email); // Clean up cache
@@ -132,7 +132,7 @@ router.post('/admin-login', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', authUser, async (req, res) => {
   try {
-    const r = await pool.query('SELECT id,name,email,role,avatar,phone,impact_points,level,student_id,created_at FROM users WHERE id=$1', [req.user.id]);
+    const r = await pool.query('SELECT id,name,email,role,avatar,phone,impact_points,level,student_id,created_at,age,gender,college,address FROM users WHERE id=$1', [req.user.id]);
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
