@@ -21,8 +21,8 @@ app.use(cors({
     }
   }
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // File upload handled in respective routes (e.g., media.js using Cloudinary)
 
@@ -45,6 +45,7 @@ app.use('/api/banners', require('./routes/banners'));
 app.use('/api/adsense', require('./routes/adsense'));
 app.use('/api/admin/news', require('./routes/news_admin'));
 app.use('/api/news', require('./routes/news_public'));
+app.use('/api/selfie-settings', require('./routes/selfie'));
 
 
 // Root Route

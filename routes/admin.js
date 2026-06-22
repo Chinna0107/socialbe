@@ -486,11 +486,12 @@ router.get('/marketplace', async (req, res) => {
 
 router.post('/marketplace', async (req, res) => {
   try {
-    const { name, description, price, image, stock, category } = req.body;
+    const { name, description, price, image, image_url, stock, category } = req.body;
+    const finalImage = image || image_url;
     const id = `PROD-${Date.now().toString(36).toUpperCase()}`;
     const result = await pool.query(
       'INSERT INTO products (id,name,description,price,image,stock,category) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [id, name, description, price, image, stock, category]
+      [id, name, description, price, finalImage, stock, category]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -500,10 +501,11 @@ router.post('/marketplace', async (req, res) => {
 
 router.put('/marketplace/:id', async (req, res) => {
   try {
-    const { name, description, price, image, stock, category, status } = req.body;
+    const { name, description, price, image, image_url, stock, category, status } = req.body;
+    const finalImage = image || image_url;
     const result = await pool.query(
       'UPDATE products SET name=$1,description=$2,price=$3,image=$4,stock=$5,category=$6,status=$7 WHERE id=$8 RETURNING *',
-      [name, description, price, image, stock, category, status, req.params.id]
+      [name, description, price, finalImage, stock, category, status, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -798,6 +800,40 @@ router.get('/enquiries', async (req, res) => {
       pool.query(`SELECT COUNT(*) FROM enquiries e ${where}`, params),
     ]);
     res.json({ enquiries: data.rows, total: parseInt(count.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/enquiries/stats', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE status='open')::int as open,
+        COUNT(*) FILTER (WHERE status='in_progress')::int as in_progress,
+        COUNT(*) FILTER (WHERE status='responded')::int as responded,
+        COUNT(*) FILTER (WHERE status='resolved')::int as resolved,
+        COUNT(*) FILTER (WHERE status='closed')::int as closed
+      FROM enquiries
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/enquiries/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['open', 'in_progress', 'responded', 'resolved', 'closed'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    const result = await pool.query(
+      'UPDATE enquiries SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+      [status, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Enquiry not found' });
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

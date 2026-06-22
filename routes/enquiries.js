@@ -42,12 +42,12 @@ router.get('/stats', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status='open') as open,
-        COUNT(*) FILTER (WHERE status='in_progress') as in_progress,
-        COUNT(*) FILTER (WHERE status='responded') as responded,
-        COUNT(*) FILTER (WHERE status='resolved') as resolved,
-        COUNT(*) FILTER (WHERE status='closed') as closed
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE status='open')::int as open,
+        COUNT(*) FILTER (WHERE status='in_progress')::int as in_progress,
+        COUNT(*) FILTER (WHERE status='responded')::int as responded,
+        COUNT(*) FILTER (WHERE status='resolved')::int as resolved,
+        COUNT(*) FILTER (WHERE status='closed')::int as closed
       FROM enquiries
     `);
     res.json(result.rows[0]);

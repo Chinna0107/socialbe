@@ -74,6 +74,57 @@ router.post('/verify-otp', async (req, res) => {
   res.json({ message: 'OTP verified successfully' });
 });
 
+// POST /api/auth/send-checkout-otp
+router.post('/send-checkout-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = Date.now() + 10 * 60 * 1000; // 10 mins
+
+    otpCache.set(`checkout_${email}`, { otp, expires, verified: false });
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_USER !== 'your_email@gmail.com') {
+      await transporter.sendMail({
+        from: `"Social News" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Your Checkout Verification OTP',
+        html: `<h3>Social News Marketplace Checkout</h3><p>Your OTP for checkout verification is: <strong style="font-size:24px;">${otp}</strong></p><p>It will expire in 10 minutes.</p>`
+      });
+      console.log(`[AUTH] Sent checkout OTP to ${email} via email.`);
+    } else {
+      console.log(`[AUTH-DEV] Generated checkout OTP for ${email}: ${otp}`);
+    }
+
+    res.json({ message: 'Checkout OTP sent successfully' });
+  } catch (err) {
+    console.error('Error sending checkout OTP:', err);
+    res.status(500).json({ error: 'Failed to send checkout OTP' });
+  }
+});
+
+// POST /api/auth/verify-checkout-otp
+router.post('/verify-checkout-otp', async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+  const record = otpCache.get(`checkout_${email}`);
+  if (!record) return res.status(400).json({ error: 'No OTP found for this email. Please request a new one.' });
+
+  if (Date.now() > record.expires) {
+    otpCache.delete(`checkout_${email}`);
+    return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+  }
+
+  if (record.otp !== otp.toString()) {
+    return res.status(400).json({ error: 'Invalid OTP' });
+  }
+
+  otpCache.set(`checkout_${email}`, { ...record, verified: true });
+  res.json({ message: 'Checkout OTP verified successfully' });
+});
+
 // POST /api/auth/register — user/student
 router.post('/register', async (req, res) => {
   const { name, email, password, phone, role, age, gender, college, address } = req.body;
