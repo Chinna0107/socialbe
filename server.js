@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 const allowedOrigins = [
   process.env.FRONTEND_URL_DEV || 'http://localhost:5173',
-  process.env.FRONTEND_URL_PROD || 'https://socialnews.vercel.app',
+  process.env.FRONTEND_URL_PROD || 'https://socialvoicenews.com',
 ];
 
 app.use(cors({
