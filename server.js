@@ -9,14 +9,16 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   process.env.FRONTEND_URL_DEV || 'http://localhost:5173',
   process.env.FRONTEND_URL_PROD || 'https://socialvoicenews.com',
+  'https://socialvoicenews.com',
   'https://www.socialvoicenews.com',
-];
+].map(url => url.replace(/\/$/, ''));
 
 // Handle preflight OPTIONS requests explicitly for Vercel
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     const origin = req.headers.origin;
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    const isAllowed = !origin || allowedOrigins.includes(origin.replace(/\/$/, ''));
+    if (isAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin || '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -30,10 +32,12 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.includes(origin.replace(/\/$/, ''));
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
