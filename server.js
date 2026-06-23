@@ -34,11 +34,7 @@ app.use(cors({
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.includes(origin.replace(/\/$/, ''));
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
+    callback(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
