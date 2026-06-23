@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   process.env.FRONTEND_URL_DEV || 'http://localhost:5173',
   process.env.FRONTEND_URL_PROD || 'https://socialvoicenews.com',
+  'https://www.socialvoicenews.com',
 ];
 
 app.use(cors({
