@@ -279,6 +279,20 @@ async function setup() {
       status VARCHAR(20) DEFAULT 'upcoming',
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS advertisements (
+      id VARCHAR(30) PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      category VARCHAR(100) NOT NULL DEFAULT 'Services',
+      description TEXT,
+      location VARCHAR(255),
+      phone VARCHAR(50),
+      image TEXT,
+      target_url TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
   `);
 
   // Seed admin
